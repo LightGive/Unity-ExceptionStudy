@@ -1,5 +1,5 @@
 # Unity-ExceptionStudy
-自分用
+for myself
 
 ## 計算順番
 
