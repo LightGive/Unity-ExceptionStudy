@@ -1,0 +1,302 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using UnityEngine;
+using UnityEngine.Assertions;
+
+public class FormulaParser
+{
+	const char ParenthesisStart = '(';
+	const char ParenthesisEnd = ')';
+
+	Dictionary<char, OperatorBase> _stringGroupByOperatorName = null;
+
+	public FormulaParser()
+	{
+		InitializeDictionary();
+	}
+
+	void InitializeDictionary()
+	{
+		_stringGroupByOperatorName = new Dictionary<char, OperatorBase>();
+		var stringGroupTypes = Assembly.GetAssembly(typeof(OperatorBase))
+			.GetTypes()
+			.Where(x => x.IsSubclassOf(typeof(OperatorBase)) && !x.IsAbstract)
+			.ToArray();
+
+		foreach (var t in stringGroupTypes)
+		{
+			var att = (OperatorAttribute)t.GetCustomAttribute(typeof(OperatorAttribute), false);
+			if (att == null)
+			{
+				Assert.IsTrue(false, "文字列が設定されていません");
+				return;
+			}
+			_stringGroupByOperatorName.Add(att.OperatorName, (OperatorBase)Activator.CreateInstance(t));
+		}
+	}
+
+	public float Calc(string baseStr, int priority = 0)
+	{
+		if(priority > 20) { throw new Exception(); }
+
+		//スペースを除いた文字列にしておく
+		var noSpaceStr = baseStr.Replace(" ", "");
+
+		//演算子と値を交互に入れるリスト
+		List<StringGroup> stringGroupList = new List<StringGroup>();
+
+		//１文字ずつ処理
+		for (var i = 0; i < noSpaceStr.Length; i++)
+		{
+			var targetChar = noSpaceStr[i];
+
+			//カッコ開始のチェック
+			if (targetChar == ParenthesisStart)
+			{
+				var endIdx = GetParenthesisEndIndex(noSpaceStr, i);
+				var extractStr = noSpaceStr.Substring(i + 1, endIdx - i);
+				var v = Calc(extractStr, priority + 1);
+				//Debug.Log(
+				//	$"抜き出したカッコ含むカッコ内の文字列: {extractStr}\n" +
+				//	$"カッコ内の計算結果: {v}");
+				//TODO:浮動小数点数対応
+				noSpaceStr.Replace(extractStr, v.ToString("0"));
+				i--;
+			}
+			else if (char.IsNumber(targetChar))
+			{
+				var endIdx = GetNumericalEndIndex(noSpaceStr, i);
+				var extractStr = noSpaceStr.Substring(i, endIdx - i + 1);
+				var v = float.Parse(extractStr);
+				stringGroupList.Add(new NumericalString(extractStr, v));
+				i = endIdx;
+			}
+			else if (_stringGroupByOperatorName.Keys.Contains(targetChar))
+			{
+				stringGroupList.Add(new OperatorString(targetChar.ToString(),_stringGroupByOperatorName[targetChar]));
+			}
+		}
+
+		if (stringGroupList.Count == 0)
+		{
+			//TODO:無い例外を作る
+			throw new SystemException();
+		}
+
+		StringGroup preStringGroup = null;
+		if (stringGroupList.Last().StringType == StringType.Operator ||
+			stringGroupList[0].StringType == StringType.Operator)
+		{
+			//最初か最後が演算子で終わっている
+			throw new NumericalOperatorOrder();
+		}
+
+		float result = 0.0f;
+		for (var i = 0; i < stringGroupList.Count; i++)
+		{
+			var stringGroup = stringGroupList[i];
+			if (preStringGroup != null && stringGroup.StringType == preStringGroup.StringType)
+			{
+				//演算子と数値が連続している
+				throw new NumericalOperatorOrder();
+			}
+
+			switch (stringGroup.StringType)
+			{
+				case StringType.Numerical:
+					if (preStringGroup == null)
+					{
+						result = ((NumericalString)stringGroup).Value;
+					}
+					break;
+
+				case StringType.Operator:
+					var ope = (OperatorString)stringGroup;
+					var nextNum = (NumericalString)stringGroupList[i + 1];
+					result = ope.Operator.Calc(result, nextNum.Value);
+					break;
+			}
+			preStringGroup = stringGroup;
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	///  (が開始して終了するまでの番号を返す
+	/// </summary>
+	/// <param name="baseStr"></param>
+	/// <param name="parenthesisStartIdx"></param>
+	/// <returns></returns>
+	public int GetParenthesisEndIndex(string baseStr, int parenthesisStartIdx)
+	{
+		if (baseStr[parenthesisStartIdx] != ParenthesisStart)
+		{
+			Assert.IsTrue(false, "開始位置の文字がカッコじゃない");
+			return -1;
+		}
+
+		var nest = 0;
+		var startIdx = parenthesisStartIdx + 1;
+		for (var i = startIdx; i < baseStr.Length; i++)
+		{
+			var targetStr = baseStr[i];
+			if (targetStr == ParenthesisEnd)
+			{
+				if (nest != 0)
+				{
+					nest--;
+					continue;
+				}
+				//正常に終了
+				return i - 1;
+			}
+			else if (targetStr == ParenthesisStart)
+			{
+				nest++;
+			}
+		}
+
+		//カッコが閉じずに終わった場合
+		throw new ParenthesisException();
+	}
+
+	public int GetNumericalEndIndex(string baseStr,int numericalStartIdx)
+	{
+		if (!char.IsNumber(baseStr[numericalStartIdx]))
+		{
+			Assert.IsTrue(false, "開始位置の文字が数値じゃない");
+			return -1;
+		}
+
+		var isPeriod = false;
+		for (var i = numericalStartIdx + 1; i < baseStr.Length; i++)
+		{
+			if (char.IsNumber(baseStr[i]))
+			{
+				continue;
+			}
+			else if(baseStr[i] == '.')
+			{
+				if (isPeriod)
+				{
+					throw new MorePeriodException();
+				}
+				isPeriod = true;
+				continue;
+			}
+			else
+			{
+				return i - 1;
+			}
+		}
+		return baseStr.Length - 1;
+	}
+
+
+	/// <summary>
+	/// カッコが違う
+	/// </summary>
+	public class ParenthesisException : Exception { }
+
+	/// <summary>
+	/// ピリオドが多い
+	/// </summary>
+	public class MorePeriodException : Exception { }
+
+	/// <summary>
+	/// 数値と演算子の順番が違う
+	/// </summary>
+	public class NumericalOperatorOrder : Exception { }
+}
+
+/// <summary>
+/// タグオブジェクトを表すクラスに付ける属性
+/// </summary>
+[AttributeUsage(AttributeTargets.Class)]
+public class OperatorAttribute : Attribute
+{
+	/// <summary>
+	/// 修飾タグ名
+	/// </summary>
+	public char OperatorName { get; private set; }
+	public OperatorAttribute(char operatorName) { this.OperatorName = operatorName; }
+}
+
+public abstract class OperatorBase
+{
+	public abstract float Calc(float val1, float val2);
+}
+
+[Operator('+')]
+public class OperatorAddition : OperatorBase { public override float Calc(float val1, float val2) => val1 + val2; }
+[Operator('-')]
+public class OperatorSubtraction : OperatorBase { public override float Calc(float val1, float val2) => val1 - val2; }
+[Operator('*')]
+public class OperatorMultiplication : OperatorBase { public override float Calc(float val1, float val2) => val1 * val2; }
+[Operator('/')]
+public class OperatorDivision : OperatorBase 
+{
+	public override float Calc(float val1, float val2)
+	{
+		if (val2 == 0.0f)
+		{
+			throw new DivideByZeroException();
+		}
+		return val1 / val2;
+	}
+}
+
+
+public enum StringType
+{
+	/// <summary>
+	/// 演算子
+	/// </summary>
+	Operator,
+	/// <summary>
+	/// 数値
+	/// </summary>
+	Numerical,
+}
+
+
+public abstract class StringGroup
+{
+	public abstract StringType StringType { get; }
+	public string Str = "";
+	public int Priority = 0;
+	public StringGroup(string baseStr)
+	{
+		Str = baseStr;
+	}
+}
+
+/// <summary>
+/// 数値
+/// </summary>
+public class NumericalString : StringGroup
+{
+	public NumericalString(string baseStr, float value) : base(baseStr)
+	{
+		Value = value;
+	}
+
+	public float Value { get; private set; } = 0.0f;
+	public override StringType StringType => StringType.Numerical;
+}
+
+/// <summary>
+/// 演算子
+/// </summary>
+public class OperatorString : StringGroup
+{
+	public override StringType StringType => StringType.Operator;
+	public OperatorBase Operator { get; private set; }
+	public OperatorString(string baseStr, OperatorBase operatorBase) : base(baseStr) 
+	{
+		Operator = operatorBase;
+	}
+}
