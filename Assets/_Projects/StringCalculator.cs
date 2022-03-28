@@ -37,7 +37,7 @@ public class StringCalculator
 		}
 	}
 
-	public float Calc(string baseStr, int priority = 0)
+	public float Calc(string baseStr)
 	{
 		//スペースを除いた文字列にしておく
 		var noSpaceStr = baseStr.Replace(" ", "");
@@ -57,10 +57,11 @@ public class StringCalculator
 				//カッコ内の文字列を抜き出す
 				var extractStr = noSpaceStr.Substring(i + 1, endIdx - i - 1);
 				//カッコ内の文字列を再帰
-				var v = Calc(extractStr, priority + 1);
+				var v = Calc(extractStr);
 				stringGroupList.Add(new NumericalString(v));
 				i = endIdx;
 			}
+			//数字チェック
 			else if (char.IsNumber(targetChar))
 			{
 				var endIdx = GetNumericalEndIndex(noSpaceStr, i);
@@ -74,12 +75,11 @@ public class StringCalculator
 			}
 		}
 
+		//式が空かどうかをチェック
 		if (stringGroupList.Count == 0)
 		{
-			//式が空
 			throw new FormulaEmptyException();
 		}
-
 
 		//偶数番号が数値、奇数番号が演算子かどうか
 		var isNumericalOperatorOrder = stringGroupList
