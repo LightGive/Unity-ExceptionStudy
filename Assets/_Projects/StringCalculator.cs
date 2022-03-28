@@ -5,14 +5,14 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-public class FormulaParser
+public class StringCalculator
 {
 	const char ParenthesisStart = '(';
 	const char ParenthesisEnd = ')';
 
 	Dictionary<char, OperatorBase> _stringGroupByOperatorName = null;
 
-	public FormulaParser()
+	public StringCalculator()
 	{
 		InitializeDictionary();
 	}
@@ -39,8 +39,6 @@ public class FormulaParser
 
 	public float Calc(string baseStr, int priority = 0)
 	{
-		if(priority > 20) { throw new Exception(); }
-
 		//スペースを除いた文字列にしておく
 		var noSpaceStr = baseStr.Replace(" ", "");
 
@@ -56,51 +54,56 @@ public class FormulaParser
 			if (targetChar == ParenthesisStart)
 			{
 				var endIdx = GetParenthesisEndIndex(noSpaceStr, i);
-				var extractStr = noSpaceStr.Substring(i + 1, endIdx - i);
+				//カッコ内の文字列を抜き出す
+				var extractStr = noSpaceStr.Substring(i + 1, endIdx - i - 1);
+				//カッコ内の文字列を再帰
 				var v = Calc(extractStr, priority + 1);
-				//Debug.Log(
-				//	$"抜き出したカッコ含むカッコ内の文字列: {extractStr}\n" +
-				//	$"カッコ内の計算結果: {v}");
-				//TODO:浮動小数点数対応
-				noSpaceStr.Replace(extractStr, v.ToString("0"));
-				i--;
+				stringGroupList.Add(new NumericalString(v));
+				i = endIdx;
 			}
 			else if (char.IsNumber(targetChar))
 			{
 				var endIdx = GetNumericalEndIndex(noSpaceStr, i);
 				var extractStr = noSpaceStr.Substring(i, endIdx - i + 1);
-				var v = float.Parse(extractStr);
-				stringGroupList.Add(new NumericalString(extractStr, v));
+				stringGroupList.Add(new NumericalString(float.Parse(extractStr)));
 				i = endIdx;
 			}
 			else if (_stringGroupByOperatorName.Keys.Contains(targetChar))
 			{
-				stringGroupList.Add(new OperatorString(targetChar.ToString(),_stringGroupByOperatorName[targetChar]));
+				stringGroupList.Add(new OperatorString(_stringGroupByOperatorName[targetChar]));
 			}
 		}
 
 		if (stringGroupList.Count == 0)
 		{
-			//TODO:無い例外を作る
-			throw new SystemException();
+			//式が空
+			throw new FormulaEmptyException();
 		}
 
-		StringGroup preStringGroup = null;
-		if (stringGroupList.Last().StringType == StringType.Operator ||
-			stringGroupList[0].StringType == StringType.Operator)
+
+		//偶数番号が数値、奇数番号が演算子かどうか
+		var isNumericalOperatorOrder = stringGroupList
+			.Select((s, i) => new { Content = s, Index = i })
+			.Where(x =>
+				x.Index % 2 == 0 && x.Content.StringType != StringType.Numerical ||
+				x.Index % 2 == 1 && x.Content.StringType != StringType.Operator)
+			.Count() > 0;
+
+		if (isNumericalOperatorOrder)
 		{
 			//最初か最後が演算子で終わっている
-			throw new NumericalOperatorOrder();
+			throw new NumericalOperatorOrderException();
 		}
 
 		float result = 0.0f;
+		StringGroup preStringGroup = null;
 		for (var i = 0; i < stringGroupList.Count; i++)
 		{
 			var stringGroup = stringGroupList[i];
 			if (preStringGroup != null && stringGroup.StringType == preStringGroup.StringType)
 			{
 				//演算子と数値が連続している
-				throw new NumericalOperatorOrder();
+				throw new NumericalOperatorOrderException();
 			}
 
 			switch (stringGroup.StringType)
@@ -125,7 +128,7 @@ public class FormulaParser
 	}
 
 	/// <summary>
-	///  (が開始して終了するまでの番号を返す
+	///  カッコ終わりの文字番号を返す
 	/// </summary>
 	/// <param name="baseStr"></param>
 	/// <param name="parenthesisStartIdx"></param>
@@ -142,18 +145,19 @@ public class FormulaParser
 		var startIdx = parenthesisStartIdx + 1;
 		for (var i = startIdx; i < baseStr.Length; i++)
 		{
-			var targetStr = baseStr[i];
-			if (targetStr == ParenthesisEnd)
+			var targetChar = baseStr[i];
+			if (targetChar == ParenthesisEnd)
 			{
 				if (nest != 0)
 				{
 					nest--;
+
 					continue;
 				}
 				//正常に終了
-				return i - 1;
+				return i;
 			}
-			else if (targetStr == ParenthesisStart)
+			else if (targetChar == ParenthesisStart)
 			{
 				nest++;
 			}
@@ -200,16 +204,18 @@ public class FormulaParser
 	/// カッコが違う
 	/// </summary>
 	public class ParenthesisException : Exception { }
-
 	/// <summary>
 	/// ピリオドが多い
 	/// </summary>
 	public class MorePeriodException : Exception { }
-
 	/// <summary>
 	/// 数値と演算子の順番が違う
 	/// </summary>
-	public class NumericalOperatorOrder : Exception { }
+	public class NumericalOperatorOrderException : Exception { }
+	/// <summary>
+	/// 式が空
+	/// </summary>
+	public class FormulaEmptyException : Exception { }
 }
 
 /// <summary>
@@ -225,17 +231,35 @@ public class OperatorAttribute : Attribute
 	public OperatorAttribute(char operatorName) { this.OperatorName = operatorName; }
 }
 
+/// <summary>
+/// 演算子のベース
+/// </summary>
 public abstract class OperatorBase
 {
 	public abstract float Calc(float val1, float val2);
 }
 
+/// <summary>
+/// 加算
+/// </summary>
 [Operator('+')]
 public class OperatorAddition : OperatorBase { public override float Calc(float val1, float val2) => val1 + val2; }
+
+/// <summary>
+/// 減算
+/// </summary>
 [Operator('-')]
 public class OperatorSubtraction : OperatorBase { public override float Calc(float val1, float val2) => val1 - val2; }
+
+/// <summary>
+/// 乗算
+/// </summary>
 [Operator('*')]
 public class OperatorMultiplication : OperatorBase { public override float Calc(float val1, float val2) => val1 * val2; }
+
+/// <summary>
+/// 除算
+/// </summary>
 [Operator('/')]
 public class OperatorDivision : OperatorBase 
 {
@@ -266,12 +290,6 @@ public enum StringType
 public abstract class StringGroup
 {
 	public abstract StringType StringType { get; }
-	public string Str = "";
-	public int Priority = 0;
-	public StringGroup(string baseStr)
-	{
-		Str = baseStr;
-	}
 }
 
 /// <summary>
@@ -279,13 +297,13 @@ public abstract class StringGroup
 /// </summary>
 public class NumericalString : StringGroup
 {
-	public NumericalString(string baseStr, float value) : base(baseStr)
+	public override StringType StringType => StringType.Numerical;
+	public float Value { get; private set; } = 0.0f;
+
+	public NumericalString(float value)
 	{
 		Value = value;
 	}
-
-	public float Value { get; private set; } = 0.0f;
-	public override StringType StringType => StringType.Numerical;
 }
 
 /// <summary>
@@ -295,7 +313,7 @@ public class OperatorString : StringGroup
 {
 	public override StringType StringType => StringType.Operator;
 	public OperatorBase Operator { get; private set; }
-	public OperatorString(string baseStr, OperatorBase operatorBase) : base(baseStr) 
+	public OperatorString(OperatorBase operatorBase)
 	{
 		Operator = operatorBase;
 	}
