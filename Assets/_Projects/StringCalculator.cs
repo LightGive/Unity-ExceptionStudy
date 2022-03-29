@@ -70,9 +70,15 @@ public class StringCalculator
 				stringGroupList.Add(new NumericalString(float.Parse(extractStr)));
 				i = endIdx;
 			}
+			//演算子チェック
 			else if (_stringGroupByOperatorName.Keys.Contains(targetChar))
 			{
 				stringGroupList.Add(new OperatorString(_stringGroupByOperatorName[targetChar]));
+			}
+			//無効な文字列のチェック
+			else
+			{
+				throw new InvalidStringException();
 			}
 		}
 
@@ -206,7 +212,6 @@ public class StringCalculator
 		return baseStr.Length - 1;
 	}
 
-
 	/// <summary>
 	/// カッコが違う
 	/// </summary>
@@ -223,6 +228,10 @@ public class StringCalculator
 	/// 式が空
 	/// </summary>
 	public class FormulaEmptyException : Exception { }
+	/// <summary>
+	/// 無効な文字列
+	/// </summary>
+	public class InvalidStringException : Exception { }
 }
 
 /// <summary>
@@ -293,7 +302,6 @@ public enum StringType
 	Numerical,
 }
 
-
 public abstract class StringGroup
 {
 	public abstract StringType StringType { get; }
@@ -306,7 +314,6 @@ public class NumericalString : StringGroup
 {
 	public override StringType StringType => StringType.Numerical;
 	public float Value { get; private set; } = 0.0f;
-
 	public NumericalString(float value)
 	{
 		Value = value;

@@ -25,8 +25,7 @@ public class Test : MonoBehaviour
 	{
 		try
 		{
-			var str = _textField.text;
-			var val = _parser.Calc(str);
+			var val = _parser.Calc(_textField.text);
 			_textField.SetValueWithoutNotify(val.ToString());
 			_labelException.text = string.Empty;
 		}
@@ -49,6 +48,10 @@ public class Test : MonoBehaviour
 		catch (DivideByZeroException)
 		{
 			_labelException.text = "É[ÉçèúéZÇ≈Ç∑";
+		}
+		catch (StringCalculator.InvalidStringException)
+		{
+			_labelException.text = "ñ≥å¯Ç»ï∂éöóÒÇ≈Ç∑";
 		}
 	}
 }
