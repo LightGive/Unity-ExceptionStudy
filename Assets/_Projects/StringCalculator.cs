@@ -9,6 +9,7 @@ public class StringCalculator
 {
 	const char ParenthesisStart = '(';
 	const char ParenthesisEnd = ')';
+	const char Period = '.';
 
 	Dictionary<char, OperatorBase> _stringGroupByOperatorName = null;
 
@@ -62,7 +63,7 @@ public class StringCalculator
 				i = endIdx;
 			}
 			//数字チェック
-			else if (char.IsNumber(targetChar))
+			else if (char.IsNumber(targetChar) || targetChar == Period)
 			{
 				var endIdx = GetNumericalEndIndex(noSpaceStr, i);
 				var extractStr = noSpaceStr.Substring(i, endIdx - i + 1);
@@ -130,8 +131,8 @@ public class StringCalculator
 	/// <summary>
 	///  カッコ終わりの文字番号を返す
 	/// </summary>
-	/// <param name="baseStr"></param>
-	/// <param name="parenthesisStartIdx"></param>
+	/// <param name="baseStr">元の文字列</param>
+	/// <param name="parenthesisStartIdx">括弧の開始文字番号</param>
 	/// <returns></returns>
 	public int GetParenthesisEndIndex(string baseStr, int parenthesisStartIdx)
 	{
@@ -167,9 +168,15 @@ public class StringCalculator
 		throw new ParenthesisException();
 	}
 
+	/// <summary>
+	/// 数字が連続している時、終わりの文字番号を返す
+	/// </summary>
+	/// <param name="baseStr">元の文字列</param>
+	/// <param name="numericalStartIdx">数字の開始文字番号</param>
+	/// <returns></returns>
 	public int GetNumericalEndIndex(string baseStr,int numericalStartIdx)
 	{
-		if (!char.IsNumber(baseStr[numericalStartIdx]))
+		if (!char.IsNumber(baseStr[numericalStartIdx]) && baseStr[numericalStartIdx] != Period)
 		{
 			Assert.IsTrue(false, "開始位置の文字が数値じゃない");
 			return -1;
@@ -182,7 +189,7 @@ public class StringCalculator
 			{
 				continue;
 			}
-			else if(baseStr[i] == '.')
+			else if(baseStr[i] == Period)
 			{
 				if (isPeriod)
 				{
