@@ -10,8 +10,9 @@ public class StringCalculator
 	const char ParenthesisStart = '(';
 	const char ParenthesisEnd = ')';
 	const char Period = '.';
+	const char Exponentiation = '^';
 
-	Dictionary<char, OperatorBase> _stringGroupByOperatorName = null;
+	Dictionary<char, ArithmeticOperatorBase> _stringGroupByOperatorName = null;
 
 	public StringCalculator()
 	{
@@ -20,10 +21,10 @@ public class StringCalculator
 
 	void InitializeDictionary()
 	{
-		_stringGroupByOperatorName = new Dictionary<char, OperatorBase>();
-		var stringGroupTypes = Assembly.GetAssembly(typeof(OperatorBase))
+		_stringGroupByOperatorName = new Dictionary<char, ArithmeticOperatorBase>();
+		var stringGroupTypes = Assembly.GetAssembly(typeof(ArithmeticOperatorBase))
 			.GetTypes()
-			.Where(x => x.IsSubclassOf(typeof(OperatorBase)) && !x.IsAbstract)
+			.Where(x => x.IsSubclassOf(typeof(ArithmeticOperatorBase)) && !x.IsAbstract)
 			.ToArray();
 
 		foreach (var t in stringGroupTypes)
@@ -34,7 +35,7 @@ public class StringCalculator
 				Assert.IsTrue(false, "•¶š—ñ‚ªİ’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ");
 				return;
 			}
-			_stringGroupByOperatorName.Add(att.OperatorName, (OperatorBase)Activator.CreateInstance(t));
+			_stringGroupByOperatorName.Add(att.OperatorName, (ArithmeticOperatorBase)Activator.CreateInstance(t));
 		}
 	}
 
@@ -70,6 +71,11 @@ public class StringCalculator
 				stringGroupList.Add(new NumericalString(float.Parse(extractStr)));
 				i = endIdx;
 			}
+			//‚×‚«æƒ`ƒFƒbƒN
+			else if (targetChar == Exponentiation)
+			{
+
+			}
 			//‰‰Zqƒ`ƒFƒbƒN
 			else if (_stringGroupByOperatorName.Keys.Contains(targetChar))
 			{
@@ -102,24 +108,19 @@ public class StringCalculator
 			throw new NumericalOperatorOrderException();
 		}
 
-		float result = 0.0f;
-		StringGroup preStringGroup = null;
+		//‰‰Zq‚Ì”
+		var list = stringGroupList
+			.Select((x, i) => new { index = i, stringGroup = x });
+		
+		//Å‰‚Ì”š‚ğ‘ã“ü
+		float result = ((NumericalString)stringGroupList[0]).Value;
 		for (var i = 0; i < stringGroupList.Count; i++)
 		{
 			var stringGroup = stringGroupList[i];
-			if (preStringGroup != null && stringGroup.StringType == preStringGroup.StringType)
-			{
-				//‰‰Zq‚Æ”’l‚ª˜A‘±‚µ‚Ä‚¢‚é
-				throw new NumericalOperatorOrderException();
-			}
-
 			switch (stringGroup.StringType)
 			{
 				case StringType.Numerical:
-					if (preStringGroup == null)
-					{
-						result = ((NumericalString)stringGroup).Value;
-					}
+
 					break;
 
 				case StringType.Operator:
@@ -128,7 +129,6 @@ public class StringCalculator
 					result = ope.Operator.Calc(result, nextNum.Value);
 					break;
 			}
-			preStringGroup = stringGroup;
 		}
 
 		return result;
@@ -244,13 +244,21 @@ public class OperatorAttribute : Attribute
 	/// Cüƒ^ƒO–¼
 	/// </summary>
 	public char OperatorName { get; private set; }
-	public OperatorAttribute(char operatorName) { this.OperatorName = operatorName; }
+	/// <summary>
+	/// ‰‰Zq‚Ì—Dæ‡ˆÊ
+	/// </summary>
+	public int Priority { get; private set; }
+	public OperatorAttribute(char operatorName, int priority)
+	{
+		OperatorName = operatorName;
+		Priority = priority;
+	}
 }
 
 /// <summary>
-/// ‰‰Zq‚Ìƒx[ƒX
+/// Zp‰‰Zq‚ÌŒ³
 /// </summary>
-public abstract class OperatorBase
+public abstract class ArithmeticOperatorBase
 {
 	public abstract float Calc(float val1, float val2);
 }
@@ -258,26 +266,35 @@ public abstract class OperatorBase
 /// <summary>
 /// ‰ÁZ
 /// </summary>
-[Operator('+')]
-public class OperatorAddition : OperatorBase { public override float Calc(float val1, float val2) => val1 + val2; }
+[Operator('+', 3)]
+public class OperatorAddition : ArithmeticOperatorBase 
+{
+	public override float Calc(float val1, float val2) => val1 + val2; 
+}
 
 /// <summary>
 /// Œ¸Z
 /// </summary>
-[Operator('-')]
-public class OperatorSubtraction : OperatorBase { public override float Calc(float val1, float val2) => val1 - val2; }
+[Operator('-', 3)]
+public class OperatorSubtraction : ArithmeticOperatorBase
+{
+	public override float Calc(float val1, float val2) => val1 - val2;
+}
 
 /// <summary>
 /// æZ
 /// </summary>
-[Operator('*')]
-public class OperatorMultiplication : OperatorBase { public override float Calc(float val1, float val2) => val1 * val2; }
+[Operator('*', 2)]
+public class OperatorMultiplication : ArithmeticOperatorBase 
+{
+	public override float Calc(float val1, float val2) => val1 * val2; 
+}
 
 /// <summary>
 /// œZ
 /// </summary>
-[Operator('/')]
-public class OperatorDivision : OperatorBase 
+[Operator('/', 2)]
+public class OperatorDivision : ArithmeticOperatorBase
 {
 	public override float Calc(float val1, float val2)
 	{
@@ -321,13 +338,13 @@ public class NumericalString : StringGroup
 }
 
 /// <summary>
-/// ‰‰Zq
+/// Zp‰‰Zq‚Ì•¶š—ñ
 /// </summary>
 public class OperatorString : StringGroup
 {
 	public override StringType StringType => StringType.Operator;
-	public OperatorBase Operator { get; private set; }
-	public OperatorString(OperatorBase operatorBase)
+	public ArithmeticOperatorBase Operator { get; private set; }
+	public OperatorString(ArithmeticOperatorBase operatorBase)
 	{
 		Operator = operatorBase;
 	}
