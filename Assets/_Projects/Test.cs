@@ -9,11 +9,11 @@ public class Test : MonoBehaviour
 	UIDocument _document = null;
 	TextField _textField = null;
 	Label _labelException = null;
-	StringCalculator _parser = null;
+	StringCalculatorOld _parser = null;
 
 	void Start()
     {
-		_parser = new StringCalculator();
+		_parser = new StringCalculatorOld();
         _document = GetComponent<UIDocument>();
 		_textField = _document.rootVisualElement.Q<TextField>();
 		_labelException = _document.rootVisualElement.Q<Label>("ExceptionLabel");
@@ -29,19 +29,19 @@ public class Test : MonoBehaviour
 			_textField.SetValueWithoutNotify(val.ToString());
 			_labelException.text = string.Empty;
 		}
-		catch (StringCalculator.FormulaEmptyException)
+		catch (StringCalculatorOld.FormulaEmptyException)
 		{
 			_labelException.text = "式が空です";
 		}
-		catch (StringCalculator.ParenthesisException)
+		catch (StringCalculatorOld.ParenthesisException)
 		{
 			_labelException.text = "()の位置が違います";
 		}
-		catch(StringCalculator.MorePeriodException)
+		catch(StringCalculatorOld.MorePeriodException)
 		{
 			_labelException.text = "ピリオドが多いです";
 		}
-		catch (StringCalculator.NumericalOperatorOrderException)
+		catch (StringCalculatorOld.NumericalOperatorOrderException)
 		{
 			_labelException.text = "数値と演算子の順番が違います";
 		}
@@ -49,7 +49,7 @@ public class Test : MonoBehaviour
 		{
 			_labelException.text = "ゼロ除算です";
 		}
-		catch (StringCalculator.InvalidStringException)
+		catch (StringCalculatorOld.InvalidStringException)
 		{
 			_labelException.text = "無効な文字列です";
 		}

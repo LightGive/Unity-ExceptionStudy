@@ -8,7 +8,7 @@ public class StringCalculatorTest
 	[Test]
 	public void StringCalculatorTestSample()
 	{
-		var stringCalculator = new StringCalculator();
+		var stringCalculator = new StringCalculatorOld();
 		{
 			var val = stringCalculator.Calc("1");
 			Assert.That(val, Is.EqualTo(1));

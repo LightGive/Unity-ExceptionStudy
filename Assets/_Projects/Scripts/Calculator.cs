@@ -1,0 +1,14 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace StringCalculator
+{
+	/// <summary>
+	/// Ž®‚ðŒvŽZ‚·‚éƒNƒ‰ƒX
+	/// </summary>
+	public class Calculator : MonoBehaviour
+	{
+
+	}
+}

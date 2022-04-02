@@ -5,7 +5,7 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-public class StringCalculator
+public class StringCalculatorOld
 {
 	const char ParenthesisStart = '(';
 	const char ParenthesisEnd = ')';
@@ -13,7 +13,7 @@ public class StringCalculator
 
 	Dictionary<char, OperatorBase> _stringGroupByOperatorName = null;
 
-	public StringCalculator()
+	public StringCalculatorOld()
 	{
 		InitializeDictionary();
 	}
