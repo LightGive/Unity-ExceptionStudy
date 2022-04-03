@@ -18,4 +18,8 @@ public static class FormulaException
 	/// –³Œø‚È•¶š—ñ
 	/// </summary>
 	public class InvalidStringException : Exception { }
+	/// <summary>
+	/// ”’l‚Æ‰‰Zq‚Ì‡”Ô‚ªˆá‚¤
+	/// </summary>
+	public class NumericalOperatorOrderException : Exception { }
 }

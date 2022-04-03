@@ -22,7 +22,7 @@ namespace StringCalculator
             Period,
         });
 
-        Dictionary<string, ParserSymbolString> _dictionaryParseSymbol = null;
+        public Dictionary<string, ParserSymbolString> DictionaryParseSymbol { get; private set; } = null;
         List<ParserSymbolString> _parserList = null;
         public FormulaParser()
         {
@@ -50,10 +50,10 @@ namespace StringCalculator
             _parserList.Add(new ParserSymbolConstant("degtorad", Mathf.Deg2Rad));
 
             //DictionaryçÏê¨
-            _dictionaryParseSymbol = new Dictionary<string, ParserSymbolString>();
+            DictionaryParseSymbol = new Dictionary<string, ParserSymbolString>();
             foreach (var c in _parserList)
             {
-                _dictionaryParseSymbol.Add(c.ComparisonStr, c);
+                DictionaryParseSymbol.Add(c.ComparisonStr, c);
             }
         }
 
@@ -188,7 +188,7 @@ namespace StringCalculator
                 }
             }
             symbolKey = "";
-            if (!_dictionaryParseSymbol.ContainsKey(compareStr)) 
+            if (!DictionaryParseSymbol.ContainsKey(compareStr)) 
             {
                 throw new FormulaException.InvalidStringException();
             }
