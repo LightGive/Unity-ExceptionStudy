@@ -9,17 +9,25 @@ namespace StringCalculator
 	/// <summary>
 	/// 最終的な式を構成する項目
 	/// </summary>
-	public class FormulaSymbol : MonoBehaviour
+	public class FormulaSymbol
 	{
-
+		public int Priority { get; private set; }
+		public FormulaSymbol(int priority)
+		{
+			Priority = priority;
+		}
 	}
 
 	/// <summary>
 	/// 演算子
 	/// </summary>
-	public class FormulaSymbolOperator : FormulaSymbol
+	public class FormulaSymbolString : FormulaSymbol
 	{
-		public int Priority { get; }
+		public string Key { get; private set; }
+		public FormulaSymbolString(int priority, string key) : base(priority)
+		{
+			Key = key;
+		}
 	}
 
 	/// <summary>
@@ -28,9 +36,9 @@ namespace StringCalculator
 	public class FormulaSymbolNumerical : FormulaSymbol
 	{
 		public float Value { get; private set; }
-		public FormulaSymbolNumerical(float val) 
+		public FormulaSymbolNumerical(int priority, float val) : base(priority)
 		{
-			Value = val; 
+			Value = val;
 		}
 	}
 }
