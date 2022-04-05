@@ -3,17 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using StringCalculator;
 
 public class Test : MonoBehaviour
 {
 	UIDocument _document = null;
 	TextField _textField = null;
 	Label _labelException = null;
-	StringCalculatorOld _parser = null;
+	ParserFormula _parser = null;
 
 	void Start()
     {
-		_parser = new StringCalculatorOld();
+		_parser = new ParserFormula();
+
         _document = GetComponent<UIDocument>();
 		_textField = _document.rootVisualElement.Q<TextField>();
 		_labelException = _document.rootVisualElement.Q<Label>("ExceptionLabel");
@@ -25,7 +27,7 @@ public class Test : MonoBehaviour
 	{
 		try
 		{
-			var val = _parser.Calc(_textField.text);
+			var val = Calculator.Calc(_textField.text, _parser);
 			_textField.SetValueWithoutNotify(val.ToString());
 			_labelException.text = string.Empty;
 		}

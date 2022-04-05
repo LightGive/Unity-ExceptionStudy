@@ -23,10 +23,10 @@ namespace StringCalculator
 	/// </summary>
 	public class FormulaSymbolString : FormulaSymbol
 	{
-		public string Key { get; private set; }
-		public FormulaSymbolString(int priority, string key) : base(priority)
+		public ParserSymbolOperator Parser { get; private set; }
+		public FormulaSymbolString(int priority, ParserSymbolOperator parser) : base(priority)
 		{
-			Key = key;
+			Parser = parser;
 		}
 	}
 

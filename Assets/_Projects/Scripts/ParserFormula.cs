@@ -9,7 +9,7 @@ namespace StringCalculator
     /// <summary>
     /// •¶š—ñ‚©‚ç®‚ğ¶¬‚·‚é‚½‚ß‚ÌƒNƒ‰ƒX
     /// </summary>
-    public class FormulaParser
+    public class ParserFormula
     {
         const char ParenthesisStart = '(';
         const char ParenthesisEnd = ')';
@@ -24,35 +24,39 @@ namespace StringCalculator
 
         public Dictionary<string, ParserSymbolString> DictionaryParseSymbol { get; private set; } = null;
         List<ParserSymbolString> _parserList = null;
-        public FormulaParser()
+        public ParserFormula()
         {
-            _parserList = new List<ParserSymbolString>();
+            _parserList = new List<ParserSymbolString>()
+            { 
+                //‰ÁZ
+                new ParserSymbolOperator("+", (x, y) => x + y, 0),
+                new ParserSymbolOperator("-", (x, y) => x - y, 0),
+                new ParserSymbolOperator("*", (x, y) => x * y, 1),
+                new ParserSymbolOperator("/", (x, y) =>
+                {
+                    if (y == 0) { throw new DivideByZeroException(); }
+                    return x / y;
+                }, 1),
+                new ParserSymbolOperator("^", (x, y) => Mathf.Pow(x, y), 2),
 
-            //‰‰Zq
-            //‰ÁZ
-            _parserList.Add(new ParserSymbolOperator("+", (x, y) => x + y, 0));
-            //Œ¸Z
-            _parserList.Add(new ParserSymbolOperator("-", (x, y) => x - y, 0));
-            //æZ
-            _parserList.Add(new ParserSymbolOperator("*", (x, y) => x * y, 1));
-            //œZ
-            _parserList.Add(new ParserSymbolOperator("/", (x, y) =>
-            {
-                if (y == 0) { throw new DivideByZeroException(); }
-                return x / y;
-            }, 1));
-            //‚×‚«æ
-            _parserList.Add(new ParserSymbolOperator("^", (x, y) => Mathf.Pow(x, y), 2));
-
-            //’è”
-            _parserList.Add(new ParserSymbolConstant("pi", Mathf.PI));
-            _parserList.Add(new ParserSymbolConstant("radtodeg", Mathf.Rad2Deg));
-            _parserList.Add(new ParserSymbolConstant("degtorad", Mathf.Deg2Rad));
+                //’è”
+                new ParserSymbolConstant("pi", Mathf.PI),
+                new ParserSymbolConstant("radtodeg", Mathf.Rad2Deg),
+                new ParserSymbolConstant("degtorad", Mathf.Deg2Rad),
+            };
 
             //Dictionaryì¬
             DictionaryParseSymbol = new Dictionary<string, ParserSymbolString>();
             foreach (var c in _parserList)
             {
+                foreach(var ignoreChar in IgnoreChars)
+				{
+                    //TODO:Operator‚Æ’è”‚âŠÖ”“™‚Ì•¶š—ñ‚ª”í‚Á‚Ä‚¢‚È‚¢‚©‚ğƒ`ƒFƒbƒN‚·‚é
+					if (c.ComparisonStr.Contains(ignoreChar))
+					{
+                        throw new FormulaException.CantUsedStringSymbolChar();
+					}
+				}
                 DictionaryParseSymbol.Add(c.ComparisonStr, c);
             }
         }
@@ -85,9 +89,9 @@ namespace StringCalculator
                     var symbol = noSpaceStr.AsSpan(i, length);
                     symbolList.Add(new FormulaSymbolNumerical(priority, float.Parse(symbol)));
                 }
-                else if (IsCompareString(noSpaceStr, i, out var symbolKey))
+                else if (IsCompareString(noSpaceStr, i, priority, out var symbol))
                 {
-                    symbolList.Add(new FormulaSymbolString(priority, symbolKey));
+                    symbolList.Add(symbol);
                 }
                 i += length;
             }
@@ -175,7 +179,7 @@ namespace StringCalculator
         /// •¶š—ñ‚Ì”»’è
         /// </summary>
         /// <returns></returns>
-        bool IsCompareString(string str, int startIndex, out string symbolKey)
+        bool IsCompareString(string str, int startIndex, int priority, out FormulaSymbol symbol)
         {
             var compareStr = "";
             for (var i = startIndex + 1; i < str.Length; i++)
@@ -187,12 +191,26 @@ namespace StringCalculator
                     break;
                 }
             }
-            symbolKey = "";
+            symbol = null;
             if (!DictionaryParseSymbol.ContainsKey(compareStr)) 
             {
                 throw new FormulaException.InvalidStringException();
             }
-            symbolKey = compareStr;
+
+            var p = DictionaryParseSymbol[compareStr];
+			switch (p.GetType().Name)
+			{
+                case nameof(ParserSymbolConstant):
+                    var parserSymbolConstant = (ParserSymbolConstant)p;
+                    symbol = new FormulaSymbolNumerical(priority, parserSymbolConstant.Calc());
+                    break;
+                case nameof(ParserSymbolOperator):
+                    var parserSymbolOperator = (ParserSymbolOperator)p;
+                    symbol = new FormulaSymbolString(priority, parserSymbolOperator);
+                    break;
+                case nameof(ParserSymbolMethod):
+                    throw new Exception("–¢À‘•");
+			}
             return true;
         }
     }
