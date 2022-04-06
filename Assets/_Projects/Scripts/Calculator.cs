@@ -70,5 +70,25 @@ namespace StringCalculator
 			}
 			return 0.0f;
 		}
+
+		static void DisplayLog(FormulaSymbol[] symbols)
+		{
+			var str = "";
+			for(var i = 0; i < symbols.Length; i++)
+			{
+				switch (symbols[i].GetType().Name)
+				{
+					case nameof(FormulaSymbolNumerical):
+						var numerical = (FormulaSymbolNumerical)symbols[i];
+						str += $"�y{numerical.Priority}:{numerical.Value}�z";
+						break;
+					case nameof(FormulaSymbolString):
+						var symbolString = (FormulaSymbolString)symbols[i];
+						str += $"�y{symbolString.Priority}:{symbolString.Parser.ComparisonStr}�z";
+						break;
+				}
+			}
+			Debug.Log(str);
+		}
 	}
 }
