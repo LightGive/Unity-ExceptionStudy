@@ -78,6 +78,7 @@ namespace StringCalculator
             //‚P•¶š‚¸‚Âˆ—
             for (var i = 0; i < noSpaceStr.Length; i++)
             {
+                Debug.Log($"{i}");
                 length = 0;
                 if (IsParenthesis(noSpaceStr, i, ref length))
                 {
@@ -89,13 +90,13 @@ namespace StringCalculator
                     var symbol = noSpaceStr.AsSpan(i, length);
                     symbolList.Add(new FormulaSymbolNumerical(priority, float.Parse(symbol)));
                 }
-                else if (IsCompareString(noSpaceStr, i, priority, out var symbol))
+                else if (IsCompareString(noSpaceStr, i, priority, out var symbol,ref length))
                 {
                     symbolList.Add(symbol);
                 }
-                i += length;
+                i += length - 1;
             }
-            return null;
+            return symbolList;
         }
 
         /// <summary>
@@ -171,6 +172,7 @@ namespace StringCalculator
                     return true;
                 }
             }
+
             length = str.Length - startIndex;
             return true;
         }
@@ -179,23 +181,25 @@ namespace StringCalculator
         /// •¶š—ñ‚Ì”»’è
         /// </summary>
         /// <returns></returns>
-        bool IsCompareString(string str, int startIndex, int priority, out FormulaSymbol symbol)
+        bool IsCompareString(string str, int startIndex, int priority, out FormulaSymbol symbol, ref int length)
         {
-            var compareStr = "";
-            for (var i = startIndex + 1; i < str.Length; i++)
+            var compareStr = string.Empty;
+            for (var i = startIndex; i < str.Length; i++)
             {
-                var targetChar = str[i];
-                if (IgnoreChars.Contains(targetChar))
+                string targetStr = str.Substring(startIndex, i - startIndex + 1);
+                if (DictionaryParseSymbol.ContainsKey(targetStr))
                 {
-                    compareStr = str.AsSpan(startIndex, i - startIndex).ToString();
+                    compareStr = targetStr;
                     break;
                 }
             }
-            symbol = null;
-            if (!DictionaryParseSymbol.ContainsKey(compareStr)) 
-            {
+
+			if (compareStr == string.Empty)
+			{
                 throw new FormulaException.InvalidStringException();
-            }
+			}
+            length = compareStr.Length;
+            symbol = null;
 
             var p = DictionaryParseSymbol[compareStr];
 			switch (p.GetType().Name)
@@ -204,7 +208,7 @@ namespace StringCalculator
                     var parserSymbolConstant = (ParserSymbolConstant)p;
                     symbol = new FormulaSymbolNumerical(priority, parserSymbolConstant.Calc());
                     break;
-                case nameof(ParserSymbolOperator):
+                case nameof(ParserSymbolOperator):;
                     var parserSymbolOperator = (ParserSymbolOperator)p;
                     symbol = new FormulaSymbolString(priority, parserSymbolOperator);
                     break;
