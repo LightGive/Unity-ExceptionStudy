@@ -78,7 +78,6 @@ namespace StringCalculator
             //‚P•¶š‚¸‚Âˆ—
             for (var i = 0; i < noSpaceStr.Length; i++)
             {
-                Debug.Log($"{i}");
                 length = 0;
                 if (IsParenthesis(noSpaceStr, i, ref length))
                 {

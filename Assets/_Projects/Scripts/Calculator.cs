@@ -18,8 +18,6 @@ namespace StringCalculator
 
 		static FormulaSymbolNumerical CalcFormula(List<FormulaSymbol> formulaList,ParserFormula parser)
 		{
-			DisplayLog(formulaList.ToArray());
-
 			var isNumericalOperatorOrder = formulaList
 				.Select((s, i) => new { Content = s, Index = i })
 				.Where(x =>
@@ -46,8 +44,6 @@ namespace StringCalculator
 					var result = CalcSameFormulaSymbolList(formulaList, formulaList[0].Priority - 1);
 					formulaList.RemoveRange(0, formulaList.Count);
 					formulaList.Add(result);
-					Debug.Log($"formulaList{formulaList.Count}");
-
 				}
 				else
 				{
@@ -89,7 +85,7 @@ namespace StringCalculator
 
 		static FormulaSymbolNumerical CalcSameFormulaSymbolList(List<FormulaSymbol> formulaList,int priority)
 		{
-			while (formulaList.Count > 1)
+			while (formulaList.Count != 1)
 			{
 				var maxPriority = formulaList
 					.Where(x => x is FormulaSymbolString)
