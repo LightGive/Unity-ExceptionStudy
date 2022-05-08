@@ -1,75 +1,70 @@
 using System;
-using System.Collections;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using UnityEngine;
+using System.Linq;
 
 namespace StringCalculator
 {
     /// <summary>
     /// 文字列から式を生成するためのクラス
     /// </summary>
-    public class ParserFormula
+    internal class ParserFormula
     {
         const char ParenthesisStart = '(';
         const char ParenthesisEnd = ')';
         const char Period = '.';
 
-        public static ReadOnlyCollection<char> IgnoreChars { get; } = Array.AsReadOnly(new[]
+        /// <summary>
+        /// 定数や演算子に使えない文字列
+        /// </summary>
+        ReadOnlyCollection<char> IgnoreChars { get; } = Array.AsReadOnly(new[]
         {
             ParenthesisStart,
             ParenthesisEnd,
             Period,
         });
 
-        public Dictionary<string, ParserSymbolString> DictionaryParseSymbol { get; private set; } = null;
-        List<ParserSymbolString> _parserList = null;
+        Dictionary<string, ParserSymbolString> _dictionaryParseSymbol = null;
         public ParserFormula()
         {
-            _parserList = new List<ParserSymbolString>()
-            { 
-                //加算
-                new ParserSymbolOperator("+", (x, y) => x + y, 0),
-                new ParserSymbolOperator("-", (x, y) => x - y, 0),
-                new ParserSymbolOperator("*", (x, y) => x * y, 1),
-                new ParserSymbolOperator("/", (x, y) =>
-                {
-                    if (y == 0) { throw new DivideByZeroException(); }
-                    return x / y;
-                }, 1),
-                new ParserSymbolOperator("^", (x, y) => Mathf.Pow(x, y), 2),
-
-                //定数
-                new ParserSymbolConstant("pi", Mathf.PI),
-                new ParserSymbolConstant("radtodeg", Mathf.Rad2Deg),
-                new ParserSymbolConstant("degtorad", Mathf.Deg2Rad),
-            };
+            var symbolList = Assembly.GetAssembly(typeof(StringCalculator.StringCalculatorSymbolList))
+                .GetTypes()
+                .Where(x => x.IsSubclassOf(typeof(ParserSymbolString)) && !x.IsAbstract)
+                .ToArray();
 
             //Dictionary作成
-            DictionaryParseSymbol = new Dictionary<string, ParserSymbolString>();
-            foreach (var c in _parserList)
+            _dictionaryParseSymbol = new Dictionary<string, ParserSymbolString>();
+            foreach (var symbol in symbolList)
             {
-                foreach(var ignoreChar in IgnoreChars)
-				{
-                    //TODO:Operatorと定数や関数等の文字列が被っていないかをチェックする
-					if (c.ComparisonStr.Contains(ignoreChar))
-					{
-                        throw new FormulaException.CantUsedStringSymbolChar();
-					}
-				}
-                DictionaryParseSymbol.Add(c.ComparisonStr, c);
+                var instance = (ParserSymbolString)Activator.CreateInstance(symbol);
+                foreach (var ignoreChar in IgnoreChars)
+                {
+                    //定数、演算子に無効な文字列が含まれているかチェック
+                    if (instance.ComparisonStr.Contains(ignoreChar))
+                    {
+                        throw new StringCalculatorException.CantUsedStringSymbolChar();
+                    }
+                }
+                _dictionaryParseSymbol.Add(instance.ComparisonStr, instance);
             }
         }
 
         /// <summary>
         /// 文字列から式を構成するリスト返す
         /// </summary>
-        /// <param name="baseStr">元の文字列</param>
+        /// <param name="baseStr">文字列</param>
+        /// <param name="priority">優先度</param>
         /// <returns></returns>
-        public List<FormulaSymbol> GetFormula(string baseStr,int priority =0)
+        internal List<FormulaSymbol> GetFormula(string baseStr, int priority = 0)
         {
             //スペースを除いた文字列にしておく
             var noSpaceStr = baseStr.Replace(" ", "");
+
+            if (string.IsNullOrEmpty(noSpaceStr))
+            {
+                throw new StringCalculatorException.FormulaEmptyException();
+            }
 
             //演算子と値を交互に入れるリスト
             List<FormulaSymbol> symbolList = new List<FormulaSymbol>();
@@ -89,7 +84,7 @@ namespace StringCalculator
                     var symbol = noSpaceStr.AsSpan(i, length);
                     symbolList.Add(new FormulaSymbolNumerical(priority, float.Parse(symbol)));
                 }
-                else if (IsCompareString(noSpaceStr, i, priority, out var symbol,ref length))
+                else if (IsCompareString(noSpaceStr, i, priority, out var symbol, ref length))
                 {
                     symbolList.Add(symbol);
                 }
@@ -132,7 +127,7 @@ namespace StringCalculator
             }
 
             //カッコが閉じずに終わった場合
-            throw new FormulaException.ParenthesisException();
+            throw new StringCalculatorException.ParenthesisException();
         }
 
         /// <summary>
@@ -142,7 +137,7 @@ namespace StringCalculator
         /// <param name="startIndex"></param>
         /// <param name="length"></param>
         /// <returns></returns>
-        public bool IsNumerical(string str, int startIndex, ref int length)
+        bool IsNumerical(string str, int startIndex, ref int length)
         {
             if (!char.IsNumber(str[startIndex]) && str[startIndex] != Period)
             {
@@ -160,7 +155,7 @@ namespace StringCalculator
                     //ピリオドが2つ以上あるかの判定
                     if (isPeriod) 
                     {
-                        throw new FormulaException.MorePeriodException(); 
+                        throw new StringCalculatorException.MorePeriodException(); 
                     }
                     isPeriod = true;
                     continue;
@@ -186,7 +181,7 @@ namespace StringCalculator
             for (var i = startIndex; i < str.Length; i++)
             {
                 string targetStr = str.Substring(startIndex, i - startIndex + 1);
-                if (DictionaryParseSymbol.ContainsKey(targetStr))
+                if (_dictionaryParseSymbol.ContainsKey(targetStr))
                 {
                     compareStr = targetStr;
                     break;
@@ -195,25 +190,26 @@ namespace StringCalculator
 
 			if (compareStr == string.Empty)
 			{
-                throw new FormulaException.InvalidStringException();
+                throw new StringCalculatorException.InvalidStringException();
 			}
+
             length = compareStr.Length;
             symbol = null;
 
-            var p = DictionaryParseSymbol[compareStr];
-			switch (p.GetType().Name)
-			{
-                case nameof(ParserSymbolConstant):
+            var p = _dictionaryParseSymbol[compareStr];
+            switch (p)
+            {
+                case ParserSymbolConstant:
                     var parserSymbolConstant = (ParserSymbolConstant)p;
-                    symbol = new FormulaSymbolNumerical(priority, parserSymbolConstant.Calc());
+                    symbol = new FormulaSymbolNumerical(priority, parserSymbolConstant.ConstValue);
                     break;
-                case nameof(ParserSymbolOperator):;
+                case ParserSymbolOperator:
                     var parserSymbolOperator = (ParserSymbolOperator)p;
                     symbol = new FormulaSymbolString(priority, parserSymbolOperator);
                     break;
-                case nameof(ParserSymbolMethod):
+                case ParserSymbolMethod:
                     throw new Exception("未実装");
-			}
+            }
             return true;
         }
     }

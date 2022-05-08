@@ -10,15 +10,31 @@ namespace StringCalculator
 	/// </summary>
 	public static class Calculator
 	{
-		public static float Calc(string baseStr, ParserFormula parser)
+		static ParserFormula Parser = null;
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		public static void Init()
 		{
-			var formula = parser.GetFormula(baseStr);
-			return CalcFormula(formula, parser).Value;
+			Parser = new ParserFormula();
 		}
 
-		static FormulaSymbolNumerical CalcFormula(List<FormulaSymbol> formulaList,ParserFormula parser)
+		/// <summary>
+		/// 文字列の式を計算する
+		/// </summary>
+		/// <param name="baseStr">式</param>
+		/// <returns>解</returns>
+		public static float Calc(string baseStr)
 		{
-			var isNumericalOperatorOrder = formulaList
+			if(Parser == null) { throw new StringCalculatorException.ParserNotInitialized(); }
+			var formula = Parser.GetFormula(baseStr);
+			return CalcFormula(formula).Value;
+		}
+
+		static FormulaSymbolNumerical CalcFormula(List<FormulaSymbol> formulaList)
+		{
+			//式の順序が正しいかをチェック
+			var isNumericalOperatorOrder = formulaList.Count % 2 == 1 &&
+				formulaList
 				.Select((s, i) => new { Content = s, Index = i })
 				.Where(x =>
 					x.Index % 2 == 0 && !(x.Content is FormulaSymbolNumerical) ||
@@ -27,41 +43,63 @@ namespace StringCalculator
 
 			if (isNumericalOperatorOrder)
 			{
-				//最初か最後が数字じゃない、もしくは演算子と数字が交互になっていない
-				throw new FormulaException.NumericalOperatorOrderException();
+				throw new StringCalculatorException.NumericalOperatorOrderException();
+			}
+
+			var isAllSamePriority = formulaList
+				.Select(x => x.Priority)
+				.Distinct()
+				.Count() == 1;
+
+			if (isAllSamePriority)
+			{
+				var nextPriority = Mathf.Clamp(formulaList[0].Priority - 1, 0, int.MaxValue);
+
+				//演算子の優先度の数値リスト（降順）
+				var priorityList = formulaList
+					.Where(x => x is FormulaSymbolString)
+					.Select(x => ((FormulaSymbolString)x).Parser.Priority)
+					.OrderByDescending(x => x)
+					.Distinct();
+
+				foreach (var currentPriority in priorityList)
+				{
+					var idx = 1;
+					while (formulaList.Count >= 3 && idx < formulaList.Count)
+					{
+						var symbolString = (FormulaSymbolString)formulaList[idx];
+						if (symbolString.Parser.Priority != currentPriority)
+						{
+							idx += 2;
+							continue;
+						}
+
+						var numValLeft = (FormulaSymbolNumerical)formulaList[idx - 1];
+						var numValRight = (FormulaSymbolNumerical)formulaList[idx + 1];
+						var calcVal = symbolString.Parser.Calc(numValLeft.Value, numValRight.Value);
+						formulaList.RemoveRange(idx - 1, 3);
+						formulaList.Insert(idx - 1, new FormulaSymbolNumerical(nextPriority, calcVal));
+					}
+				}
+				return new FormulaSymbolNumerical(nextPriority, ((FormulaSymbolNumerical)formulaList[0]).Value);
 			}
 
 			while (formulaList.Count != 1)
 			{
-				var isAllSamePriority = formulaList
-					.Select(x => x.Priority)
-					.Distinct()
-					.Count() == 1;
-
-				if (isAllSamePriority)
+				var maxPriority = formulaList.Select(x => x.Priority).Max();
+				for (var i = 0; i < formulaList.Count; i++)
 				{
-					//優先度が全て同じ時
-					var result = CalcSameFormulaSymbolList(formulaList, formulaList[0].Priority - 1);
-					formulaList.RemoveRange(0, formulaList.Count);
-					formulaList.Add(result);
-				}
-				else
-				{
-					var maxPriority = formulaList.Select(x => x.Priority).Max();
-					Debug.Log($"maxPriority{maxPriority}");
-					for (var i = 0; i < formulaList.Count; i++)
-					{
-						var targetFormula = formulaList[i];
-						if (targetFormula.Priority != maxPriority) { continue; }
-						var li = ExtractSamePriorityFormula(formulaList, i);
-						var count = li.Count;
-						var num = CalcFormula(li, parser);
-						formulaList.RemoveRange(i, count);
-						formulaList.Insert(i, num);
-					}
+					var targetFormula = formulaList[i];
+					if (targetFormula.Priority != maxPriority) { continue; }
+					var li = ExtractSamePriorityFormula(formulaList, i);
+					var sameSymbolCount = li.Count;
+					var num = CalcFormula(li);
+					formulaList.RemoveRange(i, sameSymbolCount);
+					formulaList.Insert(i, num);
 				}
 			}
-			return (FormulaSymbolNumerical)formulaList[0];
+			var result = (FormulaSymbolNumerical)formulaList[0];
+			return result;
 		}
 
 		/// <summary>
@@ -81,42 +119,6 @@ namespace StringCalculator
 				continue;
 			}
 			return tmpList;
-		}
-
-		static FormulaSymbolNumerical CalcSameFormulaSymbolList(List<FormulaSymbol> formulaList,int priority)
-		{
-			while (formulaList.Count != 1)
-			{
-				var maxPriority = formulaList
-					.Where(x => x is FormulaSymbolString)
-					.Select(x => ((FormulaSymbolString)x).Parser.Priority).Max();
-
-				for (var i = 0; i < formulaList.Count; i++)
-				{
-					if (!(formulaList[i] is FormulaSymbolString)) { continue; }
-					var symbolString = (FormulaSymbolString)formulaList[i];
-					if(symbolString.Parser.Priority != maxPriority) { continue; }
-
-					//範囲外チェック
-					if (i + 1 >= formulaList.Count || i - 1 < 0)
-					{
-						throw new System.Exception();
-					}
-					//演算子と数字の順番チェック
-					if (!(formulaList[i - 1] is FormulaSymbolNumerical) ||
-						!(formulaList[i + 1] is FormulaSymbolNumerical))
-					{
-						throw new FormulaException.NumericalOperatorOrderException();
-					}
-
-					var val1 = (FormulaSymbolNumerical)formulaList[i - 1];
-					var val2 = (FormulaSymbolNumerical)formulaList[i + 1];
-					var result = symbolString.Parser.Calc(val1.Value, val2.Value);
-					formulaList.RemoveRange(i - 1, 3);
-					formulaList.Insert(i - 1, new FormulaSymbolNumerical(priority, result));
-				}
-			}
-			return (FormulaSymbolNumerical)formulaList[0];
 		}
 
 		static void DisplayLog(FormulaSymbol[] symbols)
