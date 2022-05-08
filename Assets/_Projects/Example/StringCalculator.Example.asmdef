@@ -1,0 +1,16 @@
+{
+    "name": "StringCalculator.Example",
+    "rootNamespace": "",
+    "references": [
+        "GUID:6e0b3b8e19946784299c074bebe2c0e2"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
