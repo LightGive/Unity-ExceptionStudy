@@ -1,57 +1,39 @@
-using System.Collections;
-using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
-public class StringCalculatorTest
+namespace StringCalculator.Test
 {
-	[Test]
-	public void StringCalculatorTestSample()
+	public class StringCalculatorTest
 	{
-		var stringCalculator = new StringCalculator();
+		[Test]
+		public void StringCalculatorTestSample()
 		{
-			var val = stringCalculator.Calc("1");
-			Assert.That(val, Is.EqualTo(1));
+			Calculator.Init();
+			Assert.That(Calc("1"), Is.EqualTo(1));
+			Assert.That(Calc("(1)"), Is.EqualTo(1));
+			Assert.That(Calc("((1))"), Is.EqualTo(1));
+			Assert.That(Calc("1+2"), Is.EqualTo(3));
+			Assert.That(Calc("1+2+3"), Is.EqualTo(6));
+			Assert.That(Calc("(1)+(2)+(3)"), Is.EqualTo(6));
+			Assert.That(Calc("(1+2+3)"), Is.EqualTo(6));
+			Assert.That(Calc("1+2*3"), Is.EqualTo(7));
+			Assert.That(Calc("(1+2)*3"), Is.EqualTo(9));
+			Assert.That(Calc("(1+1)*(2+2)*(3+3)"), Is.EqualTo(48));
+			Assert.That(Calc("(1+(2*(3+3)))"), Is.EqualTo(13));
+			Assert.That(Calc("0.1+0.2+0.3"), Is.EqualTo(0.6f));
+			Assert.That(Calc(".1+.2+.3"), Is.EqualTo(0.6f));
+			Assert.That(Calc("0.1+0.2*0.3"), Is.EqualTo(0.16f));
+			Assert.That(Calc("3^3"), Is.EqualTo(27));
+			Assert.That(Calc("2^2^2"), Is.EqualTo(16));
+			Assert.That(Calc("pi"), Is.EqualTo(Mathf.PI));
 		}
+
+		float Calc(string str)
 		{
-			var val = stringCalculator.Calc("(1)");
-			Assert.That(val, Is.EqualTo(1));
-		}
-		{
-			var val = stringCalculator.Calc("((1))");
-			Assert.That(val, Is.EqualTo(1));
-		}
-		{
-			var val = stringCalculator.Calc("1+2");
-			Assert.That(val, Is.EqualTo(3));
-		}
-		{
-			var val = stringCalculator.Calc("1+2+3");
-			Assert.That(val, Is.EqualTo(6));
-		}
-		{
-			var val = stringCalculator.Calc("(1)+(2)+(3)");
-			Assert.That(val, Is.EqualTo(6));
-		}
-		{
-			var val = stringCalculator.Calc("(1+2+3)");
-			Assert.That(val, Is.EqualTo(6));
-		}
-		{
-			var val = stringCalculator.Calc("(1+1)*(2+2)*(3+3)");
-			Assert.That(val, Is.EqualTo(48));
-		}
-		{
-			var val = stringCalculator.Calc("(1+(2*(3+3)))");
-			Assert.That(val, Is.EqualTo(13));
-		}
-		{
-			var val = stringCalculator.Calc("0.1+0.2+0.3");
-			Assert.That(val, Is.EqualTo(0.6f));
-		}
-		{
-			var val = stringCalculator.Calc(".1+.2*.3");
-			Assert.That(val, Is.EqualTo(0.09f));
+			Debug.Log("--------------------------------------");
+			var result = Calculator.Calc(str);
+			Debug.Log($"{str}={result}");
+			return result;
 		}
 	}
 }
